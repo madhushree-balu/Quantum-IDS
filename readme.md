@@ -35,16 +35,11 @@ quantum_ids_project/
 │   └── processed/
 │       ├── X_train.npy
 │       └── y_train.npy
-├── notebooks/
-│   ├── 01_preprocessing.ipynb
-│   ├── 02_classical_baseline.ipynb
-│   ├── 03_quantum_kernel.ipynb
-│   └── 04_analysis.ipynb
 ├── src/
-│   ├── preprocessing.py
-│   ├── classical_models.py
-│   ├── quantum_models.py
-│   └── utils.py
+│   ├── 01_preprocessing.py
+│   ├── 02_classical_baseline.py
+│   ├── 03_quantum_kernel.py
+│   └── 04_analysis.py
 ├── results/
 │   ├── classical_results.csv
 │   ├── quantum_results.csv
