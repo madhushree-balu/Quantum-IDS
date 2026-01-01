@@ -1,0 +1,18 @@
+{
+    "n_features": 8,
+    "attack_type": "neptune.",
+    "sample_size": 2500,
+    "train_size": 3500,
+    "test_size": 1500,
+    "feature_names": [
+        "src_bytes",
+        "count",
+        "same_srv_rate",
+        "flag",
+        "diff_srv_rate",
+        "dst_host_same_srv_rate",
+        "srv_serror_rate",
+        "dst_host_srv_serror_rate"
+    ],
+    "random_seed": 42
+}
