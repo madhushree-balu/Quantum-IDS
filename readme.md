@@ -10,9 +10,9 @@ pip install --upgrade pip
 pip install numpy pandas matplotlib seaborn scikit-learn
 
 # Install Qiskit (quantum computing)
-pip install qiskit==0.45.0
-pip install qiskit-aer==0.13.0
-pip install qiskit-machine-learning==0.7.0
+pip install qiskit
+pip install qiskit-aer
+pip install qiskit-machine-learning
 
 # Install GPU-accelerated libraries (optional but recommended)
 pip install tensorflow-gpu  # or just tensorflow for latest
