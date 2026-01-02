@@ -1,18 +1,26 @@
 {
+    "mode": "category",
+    "n_classes": 5,
+    "class_names": [
+        "DoS",
+        "Normal",
+        "Probe",
+        "R2L",
+        "U2R"
+    ],
     "n_features": 8,
-    "attack_type": "neptune.",
-    "sample_size": 2500,
-    "train_size": 3500,
-    "test_size": 1500,
+    "sample_size": 52,
+    "train_size": 182,
+    "test_size": 78,
     "feature_names": [
-        "src_bytes",
         "count",
-        "same_srv_rate",
-        "flag",
+        "dst_bytes",
+        "logged_in",
+        "dst_host_count",
         "diff_srv_rate",
-        "dst_host_same_srv_rate",
-        "srv_serror_rate",
-        "dst_host_srv_serror_rate"
+        "srv_count",
+        "dst_host_srv_diff_host_rate",
+        "src_bytes"
     ],
     "random_seed": 42
 }

@@ -1,7 +1,7 @@
 """
-Quantum IDS Project - Data Preprocessing
-File: src/01_preprocessing.py
-Purpose: Load, clean, and prepare KDD Cup dataset for quantum and classical models
+Quantum IDS Project - Enhanced Data Preprocessing
+File: src/01_preprocessing_enhanced.py
+Purpose: Load, clean, and prepare KDD Cup dataset with flexible attack type handling
 """
 
 import numpy as np
@@ -30,13 +30,53 @@ class Config:
     
     # Dataset parameters
     DATASET_FILE = 'kddcup.data_10_percent'
-    ATTACK_TYPE = 'neptune.'  # Options: 'neptune.', 'smurf.', 'back.', 'teardrop.'
+    
+    # ============================================
+    # CLASSIFICATION MODE - CHOOSE ONE:
+    # ============================================
+    # MODE = 'binary'           # Normal vs. ALL attacks combined
+    # MODE = 'multiclass'       # Classify top N most common attack types
+    MODE = 'category'         # Classify by attack categories (DoS, Probe, R2L, U2R, Normal)
+    
+    # For multiclass mode: number of top attack types to include (+ normal)
+    TOP_N_ATTACKS = 5
+    
+    # Attack category mappings
+    ATTACK_CATEGORIES = {
+        'normal.': 'Normal',
+        # DoS attacks
+        'back.': 'DoS',
+        'land.': 'DoS',
+        'neptune.': 'DoS',
+        'pod.': 'DoS',
+        'smurf.': 'DoS',
+        'teardrop.': 'DoS',
+        # Probe attacks
+        'ipsweep.': 'Probe',
+        'nmap.': 'Probe',
+        'portsweep.': 'Probe',
+        'satan.': 'Probe',
+        # R2L attacks
+        'ftp_write.': 'R2L',
+        'guess_passwd.': 'R2L',
+        'imap.': 'R2L',
+        'multihop.': 'R2L',
+        'phf.': 'R2L',
+        'spy.': 'R2L',
+        'warezclient.': 'R2L',
+        'warezmaster.': 'R2L',
+        # U2R attacks
+        'buffer_overflow.': 'U2R',
+        'loadmodule.': 'U2R',
+        'perl.': 'U2R',
+        'rootkit.': 'U2R'
+    }
     
     # Feature selection
     N_FEATURES = 8  # Number of features for quantum encoding (4-10 recommended)
     
     # Dataset sizes
-    SAMPLE_SIZE = 2500  # Samples per class (for balanced dataset)
+    SAMPLE_SIZE = 2500  # Max samples per class (for balanced dataset)
     TEST_SIZE = 0.3
     
     # Create directories
@@ -46,8 +86,9 @@ class Config:
 config = Config()
 
 print("="*80)
-print("QUANTUM IDS PROJECT - DATA PREPROCESSING")
+print("QUANTUM IDS PROJECT - ENHANCED DATA PREPROCESSING")
 print("="*80)
+print(f"Classification Mode: {config.MODE.upper()}")
 
 # ========================================
 # STEP 1: Load Dataset
@@ -73,22 +114,61 @@ dataset_path = os.path.join(config.DATA_DIR, config.DATASET_FILE)
 df = pd.read_csv(dataset_path, names=column_names)
 
 print(f"✓ Dataset loaded: {df.shape}")
-print(f"\nLabel distribution:")
-print(df['label'].value_counts().head(10))
+print(f"\nAll attack types found:")
+print(df['label'].value_counts())
 
 # ========================================
-# STEP 2: Binary Classification Setup
+# STEP 2: Classification Setup (Mode-dependent)
 # ========================================
-print(f"\n[STEP 2] Creating binary classification: Normal vs {config.ATTACK_TYPE}")
+print(f"\n[STEP 2] Setting up {config.MODE.upper()} classification...")
 
-# Filter for binary classification
-df_binary = df[df['label'].isin(['normal.', config.ATTACK_TYPE])].copy()
-print(f"✓ Filtered dataset: {df_binary.shape}")
-print(f"  Normal: {sum(df_binary['label'] == 'normal.')}")
-print(f"  {config.ATTACK_TYPE}: {sum(df_binary['label'] == config.ATTACK_TYPE)}")
+if config.MODE == 'binary':
+    # Binary: Normal (0) vs. All Attacks (1)
+    df_processed = df.copy()
+    df_processed['label'] = df_processed['label'].apply(lambda x: 0 if x == 'normal.' else 1)
+    class_names = ['Normal', 'Attack']
+    
+    print(f"✓ Binary classification created")
+    print(f"  Normal (0):  {sum(df_processed['label'] == 0):,}")
+    print(f"  Attack (1):  {sum(df_processed['label'] == 1):,}")
 
-# Encode labels: 0 = normal, 1 = attack
-df_binary['label'] = df_binary['label'].apply(lambda x: 0 if x == 'normal.' else 1)
+elif config.MODE == 'multiclass':
+    # Multi-class: Top N most common attacks + Normal
+    top_labels = df['label'].value_counts().head(config.TOP_N_ATTACKS + 1).index.tolist()
+    
+    # Ensure 'normal.' is included
+    if 'normal.' not in top_labels:
+        top_labels = ['normal.'] + top_labels[:config.TOP_N_ATTACKS]
+    
+    df_processed = df[df['label'].isin(top_labels)].copy()
+    
+    # Encode labels
+    label_encoder = LabelEncoder()
+    df_processed['label'] = label_encoder.fit_transform(df_processed['label'])
+    class_names = label_encoder.classes_.tolist()
+    
+    print(f"✓ Multi-class classification created with {len(class_names)} classes:")
+    for i, class_name in enumerate(class_names):
+        count = sum(df_processed['label'] == i)
+        print(f"  {i}. {class_name:20s} : {count:,}")
+
+elif config.MODE == 'category':
+    # Category: DoS, Probe, R2L, U2R, Normal
+    df_processed = df.copy()
+    df_processed['category'] = df_processed['label'].map(config.ATTACK_CATEGORIES)
+    
+    # Encode categories
+    label_encoder = LabelEncoder()
+    df_processed['label'] = label_encoder.fit_transform(df_processed['category'])
+    class_names = label_encoder.classes_.tolist()
+    
+    print(f"✓ Category classification created with {len(class_names)} categories:")
+    for i, class_name in enumerate(class_names):
+        count = sum(df_processed['label'] == i)
+        print(f"  {i}. {class_name:20s} : {count:,}")
+
+else:
+    raise ValueError(f"Invalid MODE: {config.MODE}. Choose 'binary', 'multiclass', or 'category'")
 
 # ========================================
 # STEP 3: Feature Encoding
@@ -96,8 +176,8 @@ df_binary['label'] = df_binary['label'].apply(lambda x: 0 if x == 'normal.' else
 print("\n[STEP 3] Encoding categorical features...")
 
 # Separate features and labels
-X = df_binary.drop('label', axis=1).copy()
-y = df_binary['label'].copy()
+X = df_processed.drop(['label'] + (['category'] if 'category' in df_processed.columns else []), axis=1).copy()
+y = df_processed['label'].copy()
 
 # Encode categorical features
 categorical_columns = ['protocol_type', 'service', 'flag']
@@ -109,7 +189,6 @@ for col in categorical_columns:
     label_encoders[col] = le
 
 print(f"✓ Features encoded: {X.shape}")
-print(f"✓ Categorical columns: {categorical_columns}")
 
 # ========================================
 # STEP 4: Feature Selection
@@ -117,15 +196,16 @@ print(f"✓ Categorical columns: {categorical_columns}")
 print("\n[STEP 4] Performing feature selection...")
 
 # Sample data for faster feature selection
-if len(X) > 5000:
-    X_sample, _, y_sample, _ = train_test_split(X, y, train_size=5000, stratify=y, random_state=RANDOM_SEED)
+sample_size_fs = min(10000, len(X))
+if len(X) > sample_size_fs:
+    X_sample, _, y_sample, _ = train_test_split(X, y, train_size=sample_size_fs, stratify=y, random_state=RANDOM_SEED)
 else:
     X_sample, y_sample = X, y
 
-print(f"  Training Random Forest on {len(X_sample)} samples...")
+print(f"  Training Random Forest on {len(X_sample):,} samples...")
 
 # Train Random Forest for feature importance
-rf = RandomForestClassifier(n_estimators=50, random_state=RANDOM_SEED, n_jobs=-1, verbose=0)
+rf = RandomForestClassifier(n_estimators=100, random_state=RANDOM_SEED, n_jobs=-1, verbose=0)
 rf.fit(X_sample, y_sample)
 
 # Get feature importance
@@ -134,7 +214,7 @@ feature_importance = pd.DataFrame({
     'importance': rf.feature_importances_
 }).sort_values('importance', ascending=False)
 
-print(f"\nTop {min(15, len(feature_importance))} Most Important Features:")
+print(f"\nTop 15 Most Important Features:")
 print(feature_importance.head(15).to_string(index=False))
 
 # Select top N features for quantum encoding
@@ -154,30 +234,46 @@ feature_importance.to_csv(os.path.join(config.RESULTS_DIR, 'feature_importance.c
 # ========================================
 print("\n[STEP 5] Creating balanced dataset...")
 
-# Separate majority and minority classes
-X_normal = X_selected[y == 0]
-y_normal = y[y == 0]
-X_attack = X_selected[y == 1]
-y_attack = y[y == 1]
+# Get unique classes
+unique_classes = sorted(y.unique())
+n_classes = len(unique_classes)
 
-print(f"  Before balancing - Normal: {len(X_normal)}, Attack: {len(X_attack)}")
+print(f"  Number of classes: {n_classes}")
+print(f"  Before balancing:")
+for cls in unique_classes:
+    print(f"    Class {cls} ({class_names[cls]}): {sum(y == cls):,}")
 
-# Determine sample size
-sample_size = min(len(X_normal), len(X_attack), config.SAMPLE_SIZE)
-print(f"  Using {sample_size} samples per class")
+# Find minimum class size
+min_class_size = min([sum(y == cls) for cls in unique_classes])
+sample_size = min(min_class_size, config.SAMPLE_SIZE)
 
-# Downsample both classes
-X_normal_sampled = resample(X_normal, n_samples=sample_size, random_state=RANDOM_SEED)
-y_normal_sampled = resample(y_normal, n_samples=sample_size, random_state=RANDOM_SEED)
-X_attack_sampled = resample(X_attack, n_samples=sample_size, random_state=RANDOM_SEED)
-y_attack_sampled = resample(y_attack, n_samples=sample_size, random_state=RANDOM_SEED)
+print(f"\n  Using {sample_size:,} samples per class")
 
-# Combine
-X_balanced = pd.concat([X_normal_sampled, X_attack_sampled])
-y_balanced = pd.concat([y_normal_sampled, y_attack_sampled])
+# Balance by downsampling each class
+X_balanced_list = []
+y_balanced_list = []
 
-print(f"✓ Balanced dataset: {X_balanced.shape}")
-print(f"  Normal: {sum(y_balanced==0)}, Attack: {sum(y_balanced==1)}")
+for cls in unique_classes:
+    X_cls = X_selected[y == cls]
+    y_cls = y[y == cls]
+    
+    if len(X_cls) > sample_size:
+        X_cls_sampled = resample(X_cls, n_samples=sample_size, random_state=RANDOM_SEED)
+        y_cls_sampled = resample(y_cls, n_samples=sample_size, random_state=RANDOM_SEED)
+    else:
+        X_cls_sampled = X_cls
+        y_cls_sampled = y_cls
+    
+    X_balanced_list.append(X_cls_sampled)
+    y_balanced_list.append(y_cls_sampled)
+
+X_balanced = pd.concat(X_balanced_list)
+y_balanced = pd.concat(y_balanced_list)
+
+print(f"\n✓ Balanced dataset: {X_balanced.shape}")
+print(f"  After balancing:")
+for cls in unique_classes:
+    print(f"    Class {cls} ({class_names[cls]}): {sum(y_balanced == cls):,}")
 
 # ========================================
 # STEP 6: Train-Test Split
@@ -191,22 +287,25 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y_balanced
 )
 
-print(f"✓ Train set: {X_train.shape} (Normal: {sum(y_train==0)}, Attack: {sum(y_train==1)})")
-print(f"✓ Test set:  {X_test.shape} (Normal: {sum(y_test==0)}, Attack: {sum(y_test==1)})")
+print(f"✓ Train set: {X_train.shape}")
+print(f"✓ Test set:  {X_test.shape}")
+print(f"\n  Train distribution:")
+for cls in unique_classes:
+    print(f"    Class {cls} ({class_names[cls]}): {sum(y_train == cls):,}")
+print(f"\n  Test distribution:")
+for cls in unique_classes:
+    print(f"    Class {cls} ({class_names[cls]}): {sum(y_test == cls):,}")
 
 # ========================================
 # STEP 7: Normalization for Classical Models
 # ========================================
 print("\n[STEP 7] Normalizing features for classical models...")
 
-# Standard scaling for classical models
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
 print(f"✓ Features scaled using StandardScaler")
-print(f"  Mean: {X_train_scaled.mean(axis=0)[:3]} ...")
-print(f"  Std:  {X_train_scaled.std(axis=0)[:3]} ...")
 
 # ========================================
 # STEP 8: Normalization for Quantum Models
@@ -221,7 +320,7 @@ X_train_quantum = (X_train_scaled - X_train_min) / (X_train_max - X_train_min) *
 X_test_quantum = (X_test_scaled - X_train_min) / (X_train_max - X_train_min) * 2 * np.pi
 
 print(f"✓ Features scaled to [0, 2π] for quantum encoding")
-print(f"  Range: [{X_train_quantum.min():.3f}, {X_train_quantum.max():.3f}]")
+print(f"  Range: [{X_train_quantum.min():.3f}, {X_test_quantum.max():.3f}]")
 
 # ========================================
 # STEP 9: Save Processed Data
@@ -240,10 +339,16 @@ np.save(os.path.join(config.PROCESSED_DIR, 'y_test.npy'), y_test.values)
 with open(os.path.join(config.PROCESSED_DIR, 'feature_names.txt'), 'w') as f:
     f.write('\n'.join(top_features))
 
+# Save class names
+with open(os.path.join(config.PROCESSED_DIR, 'class_names.txt'), 'w') as f:
+    f.write('\n'.join(class_names))
+
 # Save configuration
 config_dict = {
+    'mode': config.MODE,
+    'n_classes': n_classes,
+    'class_names': class_names,
     'n_features': config.N_FEATURES,
-    'attack_type': config.ATTACK_TYPE,
     'sample_size': sample_size,
     'train_size': len(X_train),
     'test_size': len(X_test),
@@ -262,14 +367,13 @@ print(f"✓ Data saved to {config.PROCESSED_DIR}/")
 # ========================================
 print("\n[STEP 10] Creating visualizations...")
 
-# Create figure with subplots
-fig = plt.figure(figsize=(18, 12))
-
 # 1. Feature Distributions
+fig = plt.figure(figsize=(18, 12))
 for idx, feature in enumerate(top_features):
     ax = plt.subplot(3, 3, idx+1)
-    ax.hist(X_balanced[feature][y_balanced == 0], alpha=0.6, label='Normal', bins=30, color='blue')
-    ax.hist(X_balanced[feature][y_balanced == 1], alpha=0.6, label='Attack', bins=30, color='red')
+    for cls in unique_classes:
+        ax.hist(X_balanced[feature][y_balanced == cls], alpha=0.5, 
+                label=class_names[cls], bins=30)
     ax.set_title(f'{feature}', fontsize=10)
     ax.set_xlabel('Value')
     ax.set_ylabel('Frequency')
@@ -280,6 +384,7 @@ for idx, feature in enumerate(top_features):
 plt.tight_layout()
 plt.savefig(os.path.join(config.FIGURES_DIR, 'feature_distributions.png'), dpi=300, bbox_inches='tight')
 print(f"✓ Feature distributions saved")
+plt.close()
 
 # 2. Feature Importance Plot
 fig, ax = plt.subplots(figsize=(12, 6))
@@ -293,7 +398,6 @@ ax.set_title('Top 15 Most Important Features')
 ax.invert_yaxis()
 ax.grid(True, alpha=0.3, axis='x')
 
-# Highlight selected features
 for i, feature in enumerate(top_15['feature']):
     if feature in top_features:
         bars[i].set_edgecolor('red')
@@ -302,6 +406,7 @@ for i, feature in enumerate(top_15['feature']):
 plt.tight_layout()
 plt.savefig(os.path.join(config.FIGURES_DIR, 'feature_importance.png'), dpi=300, bbox_inches='tight')
 print(f"✓ Feature importance plot saved")
+plt.close()
 
 # 3. Correlation Heatmap
 fig, ax = plt.subplots(figsize=(10, 8))
@@ -312,30 +417,32 @@ ax.set_title('Feature Correlation Matrix')
 plt.tight_layout()
 plt.savefig(os.path.join(config.FIGURES_DIR, 'correlation_matrix.png'), dpi=300, bbox_inches='tight')
 print(f"✓ Correlation matrix saved")
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+plt.close()
 
-# Original distribution
-df['label'].value_counts().head(10).plot(kind='barh', ax=axes[0], color='skyblue')
-axes[0].set_title('Original Dataset Distribution')
-axes[0].set_xlabel('Count')
+# 4. Class Distribution Plots
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-# Binary distribution - FIXED VERSION
-binary_counts = pd.Series([sum(y==0), sum(y==1)], index=['Normal', 'Attack'])
-binary_counts.plot(kind='bar', ax=axes[1], color=['blue', 'red'])
-axes[1].set_title('Binary Classification Distribution')
-axes[1].set_ylabel('Count')
-axes[1].set_xticklabels(axes[1].get_xticklabels(), rotation=0)
+# Class distribution
+class_counts = pd.Series([sum(y_balanced == cls) for cls in unique_classes], 
+                         index=[class_names[cls] for cls in unique_classes])
+class_counts.plot(kind='bar', ax=axes[0], color=plt.cm.Set3(range(n_classes)))
+axes[0].set_title('Class Distribution (Balanced)')
+axes[0].set_ylabel('Count')
+axes[0].set_xlabel('Class')
+axes[0].tick_params(axis='x', rotation=45)
+axes[0].grid(True, alpha=0.3, axis='y')
 
 # Train-Test split
 split_data = pd.DataFrame({
-    'Normal': [sum(y_train==0), sum(y_test==0)],
-    'Attack': [sum(y_train==1), sum(y_test==1)]
+    class_names[cls]: [sum(y_train == cls), sum(y_test == cls)]
+    for cls in unique_classes
 }, index=['Train', 'Test'])
-split_data.plot(kind='bar', ax=axes[2], color=['blue', 'red'])
-axes[2].set_title('Train-Test Split Distribution')
-axes[2].set_ylabel('Count')
-axes[2].set_xticklabels(axes[2].get_xticklabels(), rotation=0)
-axes[2].legend()
+split_data.plot(kind='bar', ax=axes[1], color=plt.cm.Set3(range(n_classes)))
+axes[1].set_title('Train-Test Split Distribution')
+axes[1].set_ylabel('Count')
+axes[1].tick_params(axis='x', rotation=0)
+axes[1].legend(loc='upper right')
+axes[1].grid(True, alpha=0.3, axis='y')
 
 plt.tight_layout()
 plt.savefig(os.path.join(config.FIGURES_DIR, 'class_distributions.png'), dpi=300, bbox_inches='tight')
@@ -348,13 +455,16 @@ plt.close('all')
 print("\n" + "="*80)
 print("PREPROCESSING COMPLETE!")
 print("="*80)
+print(f"\nConfiguration:")
+print(f"  Classification mode: {config.MODE}")
+print(f"  Number of classes:   {n_classes}")
+print(f"  Classes:             {', '.join(class_names)}")
 print(f"\nDataset Summary:")
-print(f"  Total samples:      {len(X_balanced)}")
-print(f"  Training samples:   {len(X_train)}")
-print(f"  Testing samples:    {len(X_test)}")
-print(f"  Number of features: {config.N_FEATURES}")
-print(f"  Feature names:      {', '.join(top_features)}")
-print(f"  Attack type:        {config.ATTACK_TYPE}")
+print(f"  Total samples:       {len(X_balanced):,}")
+print(f"  Training samples:    {len(X_train):,}")
+print(f"  Testing samples:     {len(X_test):,}")
+print(f"  Number of features:  {config.N_FEATURES}")
+print(f"  Feature names:       {', '.join(top_features)}")
 print(f"\nFiles saved in:")
 print(f"  Data:   {config.PROCESSED_DIR}/")
 print(f"  Plots:  {config.FIGURES_DIR}/")

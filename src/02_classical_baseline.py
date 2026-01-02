@@ -1,7 +1,7 @@
 """
-Quantum IDS Project - Classical Baseline Models
+Quantum IDS Project - Enhanced Classical Baseline Models
 File: src/02_classical_baseline.py
-Purpose: Train and evaluate classical ML models as baseline
+Purpose: Train and evaluate classical ML models with multi-class support
 """
 
 import numpy as np
@@ -18,11 +18,12 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                              f1_score, confusion_matrix, classification_report,
                              roc_curve, auc, roc_auc_score)
+from sklearn.preprocessing import label_binarize
 import warnings
 warnings.filterwarnings('ignore')
 
 print("="*80)
-print("QUANTUM IDS PROJECT - CLASSICAL BASELINE MODELS")
+print("QUANTUM IDS PROJECT - ENHANCED CLASSICAL BASELINE MODELS")
 print("="*80)
 
 # ========================================
@@ -44,35 +45,50 @@ y_test = np.load(os.path.join(PROCESSED_DIR, 'y_test.npy'))
 with open(os.path.join(PROCESSED_DIR, 'config.json'), 'r') as f:
     config = json.load(f)
 
+# Load class names
+with open(os.path.join(PROCESSED_DIR, 'class_names.txt'), 'r') as f:
+    class_names = [line.strip() for line in f.readlines()]
+
+n_classes = len(class_names)
+is_binary = (n_classes == 2)
+
 print(f"✓ Data loaded successfully")
-print(f"  Training samples: {len(X_train_scaled)}")
-print(f"  Testing samples:  {len(X_test_scaled)}")
-print(f"  Number of features: {config['n_features']}")
+print(f"  Classification mode: {config['mode']}")
+print(f"  Number of classes:   {n_classes}")
+print(f"  Class names:         {', '.join(class_names)}")
+print(f"  Training samples:    {len(X_train_scaled)}")
+print(f"  Testing samples:     {len(X_test_scaled)}")
+print(f"  Number of features:  {config['n_features']}")
 
 # ========================================
 # STEP 2: Define Models to Test
 # ========================================
 print("\n[STEP 2] Defining classical models...")
 
-models_to_test = {
-    # Support Vector Machines with different kernels
-    'SVM-Linear': SVC(kernel='linear', random_state=42, probability=True),
-    'SVM-RBF': SVC(kernel='rbf', random_state=42, probability=True, cache_size=2000),
-    'SVM-Poly': SVC(kernel='poly', degree=3, random_state=42, probability=True),
-    'SVM-Sigmoid': SVC(kernel='sigmoid', random_state=42, probability=True),
-    
-    # Ensemble Methods
-    'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
-    'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
-    
-    # Linear Models
-    'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
-    
-    # Instance-based
-    'KNN (k=5)': KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
-}
+# Adjust models based on number of classes
+if is_binary:
+    models_to_test = {
+        'SVM-Linear': SVC(kernel='linear', random_state=42, probability=True),
+        'SVM-RBF': SVC(kernel='rbf', random_state=42, probability=True, cache_size=2000),
+        'SVM-Poly': SVC(kernel='poly', degree=3, random_state=42, probability=True),
+        'SVM-Sigmoid': SVC(kernel='sigmoid', random_state=42, probability=True),
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
+        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
+        'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
+        'KNN (k=5)': KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
+    }
+else:
+    # For multi-class, use models that handle it well
+    models_to_test = {
+        'SVM-Linear': SVC(kernel='linear', random_state=42, probability=True, decision_function_shape='ovr'),
+        'SVM-RBF': SVC(kernel='rbf', random_state=42, probability=True, cache_size=2000, decision_function_shape='ovr'),
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
+        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
+        'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000, multi_class='multinomial'),
+        'KNN (k=5)': KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
+    }
 
-print(f"✓ {len(models_to_test)} models defined")
+print(f"✓ {len(models_to_test)} models defined for {n_classes}-class classification")
 
 # ========================================
 # STEP 3: Train and Evaluate Models
@@ -96,6 +112,9 @@ results = {
 predictions = {}
 probabilities = {}
 
+# Determine averaging method for multi-class metrics
+avg_method = 'binary' if is_binary else 'weighted'
+
 for model_name, model in models_to_test.items():
     print(f"\n{'='*80}")
     print(f"Training: {model_name}")
@@ -114,23 +133,38 @@ for model_name, model in models_to_test.items():
         y_pred = model.predict(X_test_scaled)
         prediction_time = time.time() - start_time
         
-        # Get probability scores for ROC-AUC
+        # Get probability scores
         if hasattr(model, 'predict_proba'):
-            y_proba = model.predict_proba(X_test_scaled)[:, 1]
+            y_proba = model.predict_proba(X_test_scaled)
         elif hasattr(model, 'decision_function'):
             y_proba = model.decision_function(X_test_scaled)
         else:
-            y_proba = y_pred
+            y_proba = None
         
         # Calculate metrics
         accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, zero_division=0)
-        recall = recall_score(y_test, y_pred, zero_division=0)
-        f1 = f1_score(y_test, y_pred, zero_division=0)
+        precision = precision_score(y_test, y_pred, average=avg_method, zero_division=0)
+        recall = recall_score(y_test, y_pred, average=avg_method, zero_division=0)
+        f1 = f1_score(y_test, y_pred, average=avg_method, zero_division=0)
         
+        # Calculate ROC-AUC
         try:
-            roc_auc = roc_auc_score(y_test, y_proba)
-        except:
+            if is_binary and y_proba is not None:
+                # Binary classification
+                if len(y_proba.shape) > 1:
+                    roc_auc = roc_auc_score(y_test, y_proba[:, 1])
+                else:
+                    roc_auc = roc_auc_score(y_test, y_proba)
+            elif not is_binary and y_proba is not None:
+                # Multi-class: use One-vs-Rest approach
+                y_test_bin = label_binarize(y_test, classes=range(n_classes))
+                if y_test_bin.shape[1] == 1:
+                    y_test_bin = np.hstack([1 - y_test_bin, y_test_bin])
+                roc_auc = roc_auc_score(y_test_bin, y_proba, average='weighted', multi_class='ovr')
+            else:
+                roc_auc = 0.0
+        except Exception as e:
+            print(f"  Warning: Could not calculate ROC-AUC: {e}")
             roc_auc = 0.0
         
         total_time = training_time + prediction_time
@@ -204,21 +238,43 @@ cm = confusion_matrix(y_test, y_pred_best)
 
 print(f"\nConfusion Matrix:")
 print(cm)
-print(f"\n  True Negatives:  {cm[0, 0]}")
-print(f"  False Positives: {cm[0, 1]}")
-print(f"  False Negatives: {cm[1, 0]}")
-print(f"  True Positives:  {cm[1, 1]}")
+
+if is_binary:
+    print(f"\n  True Negatives:  {cm[0, 0]}")
+    print(f"  False Positives: {cm[0, 1]}")
+    print(f"  False Negatives: {cm[1, 0]}")
+    print(f"  True Positives:  {cm[1, 1]}")
 
 # Classification Report
 print(f"\nClassification Report:")
-print(classification_report(y_test, y_pred_best, target_names=['Normal', 'Attack']))
+print(classification_report(y_test, y_pred_best, target_names=class_names))
+
+# Per-class metrics
+print(f"\nPer-Class Performance:")
+for i, class_name in enumerate(class_names):
+    class_mask = (y_test == i)
+    class_pred = (y_pred_best == i)
+    
+    tp = np.sum(class_mask & class_pred)
+    fp = np.sum(~class_mask & class_pred)
+    fn = np.sum(class_mask & ~class_pred)
+    tn = np.sum(~class_mask & ~class_pred)
+    
+    precision_cls = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall_cls = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1_cls = 2 * precision_cls * recall_cls / (precision_cls + recall_cls) if (precision_cls + recall_cls) > 0 else 0
+    
+    print(f"  {class_name:15s}: Precision={precision_cls:.3f}, Recall={recall_cls:.3f}, F1={f1_cls:.3f}")
 
 # ========================================
 # STEP 6: Comprehensive Visualization
 # ========================================
 print("\n[STEP 6] Creating visualizations...")
 
-fig = plt.figure(figsize=(20, 14))
+# Determine figure size based on number of classes
+figsize_large = (20, 14) if n_classes <= 5 else (24, 16)
+
+fig = plt.figure(figsize=figsize_large)
 
 # 1. Performance Metrics Comparison
 ax1 = plt.subplot(3, 3, 1)
@@ -248,7 +304,6 @@ ax2.set_xlabel('Training Time (seconds)')
 ax2.set_title('Training Time Comparison', fontsize=12, fontweight='bold')
 ax2.grid(True, alpha=0.3, axis='x')
 
-# Highlight best model
 best_bar_idx = results_df[results_df['Model'] == best_model_name].index[0]
 bars[best_bar_idx].set_edgecolor('red')
 bars[best_bar_idx].set_linewidth(3)
@@ -256,37 +311,54 @@ bars[best_bar_idx].set_linewidth(3)
 # 3. Confusion Matrix Heatmap (Best Model)
 ax3 = plt.subplot(3, 3, 3)
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax3,
-            xticklabels=['Normal', 'Attack'],
-            yticklabels=['Normal', 'Attack'],
+            xticklabels=class_names,
+            yticklabels=class_names,
             cbar_kws={'label': 'Count'})
 ax3.set_title(f'Confusion Matrix - {best_model_name}', fontsize=12, fontweight='bold')
 ax3.set_ylabel('True Label')
 ax3.set_xlabel('Predicted Label')
+plt.setp(ax3.get_xticklabels(), rotation=45, ha='right', fontsize=8)
+plt.setp(ax3.get_yticklabels(), rotation=0, fontsize=8)
 
 # 4. ROC Curves
 ax4 = plt.subplot(3, 3, 4)
 
-for model_name in results_df['Model']:
-    if model_name in probabilities:
-        try:
-            y_proba = probabilities[model_name]
-            fpr, tpr, _ = roc_curve(y_test, y_proba)
-            roc_auc = auc(fpr, tpr)
-            
-            linestyle = '-' if model_name == best_model_name else '--'
-            linewidth = 3 if model_name == best_model_name else 1
-            
-            ax4.plot(fpr, tpr, label=f'{model_name} (AUC={roc_auc:.3f})',
-                    linestyle=linestyle, linewidth=linewidth)
-        except:
-            continue
-
-ax4.plot([0, 1], [0, 1], 'k--', label='Random', linewidth=1)
-ax4.set_xlabel('False Positive Rate')
-ax4.set_ylabel('True Positive Rate')
-ax4.set_title('ROC Curves - All Models', fontsize=12, fontweight='bold')
-ax4.legend(loc='lower right', fontsize=8)
-ax4.grid(True, alpha=0.3)
+if is_binary:
+    # Binary ROC curves
+    for model_name in results_df['Model']:
+        if model_name in probabilities and probabilities[model_name] is not None:
+            try:
+                y_proba = probabilities[model_name]
+                if len(y_proba.shape) > 1:
+                    y_proba = y_proba[:, 1]
+                
+                fpr, tpr, _ = roc_curve(y_test, y_proba)
+                roc_auc = auc(fpr, tpr)
+                
+                linestyle = '-' if model_name == best_model_name else '--'
+                linewidth = 3 if model_name == best_model_name else 1
+                
+                ax4.plot(fpr, tpr, label=f'{model_name} (AUC={roc_auc:.3f})',
+                        linestyle=linestyle, linewidth=linewidth)
+            except:
+                continue
+    
+    ax4.plot([0, 1], [0, 1], 'k--', label='Random', linewidth=1)
+    ax4.set_xlabel('False Positive Rate')
+    ax4.set_ylabel('True Positive Rate')
+    ax4.set_title('ROC Curves - All Models', fontsize=12, fontweight='bold')
+    ax4.legend(loc='lower right', fontsize=8)
+    ax4.grid(True, alpha=0.3)
+else:
+    # Multi-class: show average ROC-AUC scores
+    ax4.barh(range(len(results_df)), results_df['ROC-AUC'], 
+             color=plt.cm.viridis(np.linspace(0, 1, len(results_df))))
+    ax4.set_yticks(range(len(results_df)))
+    ax4.set_yticklabels(results_df['Model'], fontsize=9)
+    ax4.set_xlabel('Weighted ROC-AUC Score')
+    ax4.set_title('Multi-class ROC-AUC Scores', fontsize=12, fontweight='bold')
+    ax4.grid(True, alpha=0.3, axis='x')
+    ax4.set_xlim([0, 1])
 
 # 5. F1-Score vs Training Time
 ax5 = plt.subplot(3, 3, 5)
@@ -310,7 +382,7 @@ cbar.set_label('ROC-AUC', rotation=270, labelpad=15)
 ax6 = plt.subplot(3, 3, 6, projection='polar')
 metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
 values = [best_model_info[m] for m in metrics]
-values += values[:1]  # Complete the circle
+values += values[:1]
 
 angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
 angles += angles[:1]
@@ -351,48 +423,103 @@ ax8.grid(True, alpha=0.3)
 ax8.set_xlim([0, 1.05])
 ax8.set_ylim([0, 1.05])
 
-# 9. Total Time vs F1-Score
+# 9. Per-Class F1-Scores (Best Model)
 ax9 = plt.subplot(3, 3, 9)
-colors_f1 = results_df['F1-Score']
-scatter = ax9.scatter(results_df['Total Time (s)'], results_df['Accuracy'],
-                     s=300, c=colors_f1, cmap='coolwarm',
-                     alpha=0.7, edgecolors='black', linewidth=2)
+# Calculate per-class F1 scores
+per_class_f1 = []
+for i in range(n_classes):
+    class_mask = (y_test == i)
+    class_pred = (y_pred_best == i)
+    
+    tp = np.sum(class_mask & class_pred)
+    fp = np.sum(~class_mask & class_pred)
+    fn = np.sum(class_mask & ~class_pred)
+    
+    precision_cls = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall_cls = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1_cls = 2 * precision_cls * recall_cls / (precision_cls + recall_cls) if (precision_cls + recall_cls) > 0 else 0
+    per_class_f1.append(f1_cls)
 
-for idx, row in results_df.iterrows():
-    ax9.annotate(row['Model'], 
-                (row['Total Time (s)'], row['Accuracy']),
-                fontsize=7, ha='center', va='bottom')
+colors_classes = plt.cm.Set3(range(n_classes))
+bars = ax9.bar(range(n_classes), per_class_f1, color=colors_classes, alpha=0.8, edgecolor='black')
+ax9.set_xticks(range(n_classes))
+ax9.set_xticklabels(class_names, rotation=45, ha='right', fontsize=8)
+ax9.set_ylabel('F1-Score')
+ax9.set_title(f'Per-Class F1-Score - {best_model_name}', fontsize=12, fontweight='bold')
+ax9.grid(True, alpha=0.3, axis='y')
+ax9.set_ylim([0, 1.1])
 
-ax9.set_xlabel('Total Time (seconds)')
-ax9.set_ylabel('Accuracy')
-ax9.set_title('Efficiency vs Performance', fontsize=12, fontweight='bold')
-ax9.grid(True, alpha=0.3)
-cbar = plt.colorbar(scatter, ax=ax9)
-cbar.set_label('F1-Score', rotation=270, labelpad=15)
+# Add value labels on bars
+for i, (bar, score) in enumerate(zip(bars, per_class_f1)):
+    ax9.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
+             f'{score:.3f}', ha='center', va='bottom', fontsize=8)
 
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURES_DIR, 'classical_baseline_comprehensive.png'), 
            dpi=300, bbox_inches='tight')
 print(f"✓ Comprehensive visualization saved")
+plt.close()
 
-# Additional individual plots for paper
-# Confusion matrices for top 3 models
+# Additional: Confusion matrices for top 3 models
 top_3_models = results_df.nlargest(3, 'F1-Score')['Model'].tolist()
 
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 for idx, model_name in enumerate(top_3_models):
     cm_model = confusion_matrix(y_test, predictions[model_name])
     sns.heatmap(cm_model, annot=True, fmt='d', cmap='Blues', ax=axes[idx],
-                xticklabels=['Normal', 'Attack'],
-                yticklabels=['Normal', 'Attack'])
+                xticklabels=class_names,
+                yticklabels=class_names)
     axes[idx].set_title(f'{model_name}')
     axes[idx].set_ylabel('True Label' if idx == 0 else '')
     axes[idx].set_xlabel('Predicted Label')
+    plt.setp(axes[idx].get_xticklabels(), rotation=45, ha='right', fontsize=8)
+    plt.setp(axes[idx].get_yticklabels(), rotation=0, fontsize=8)
 
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURES_DIR, 'top_3_confusion_matrices.png'),
            dpi=300, bbox_inches='tight')
 print(f"✓ Top 3 models confusion matrices saved")
+
+# Per-class performance comparison
+if n_classes > 2:
+    fig, ax = plt.subplots(figsize=(14, 6))
+    
+    # Calculate per-class metrics for all models
+    x = np.arange(n_classes)
+    width = 0.8 / len(top_3_models)
+    
+    for idx, model_name in enumerate(top_3_models):
+        y_pred_model = predictions[model_name]
+        per_class_f1 = []
+        
+        for i in range(n_classes):
+            class_mask = (y_test == i)
+            class_pred = (y_pred_model == i)
+            
+            tp = np.sum(class_mask & class_pred)
+            fp = np.sum(~class_mask & class_pred)
+            fn = np.sum(class_mask & ~class_pred)
+            
+            precision_cls = tp / (tp + fp) if (tp + fp) > 0 else 0
+            recall_cls = tp / (tp + fn) if (tp + fn) > 0 else 0
+            f1_cls = 2 * precision_cls * recall_cls / (precision_cls + recall_cls) if (precision_cls + recall_cls) > 0 else 0
+            per_class_f1.append(f1_cls)
+        
+        ax.bar(x + idx * width, per_class_f1, width, label=model_name, alpha=0.8)
+    
+    ax.set_xlabel('Class')
+    ax.set_ylabel('F1-Score')
+    ax.set_title('Per-Class F1-Score Comparison (Top 3 Models)', fontsize=12, fontweight='bold')
+    ax.set_xticks(x + width * (len(top_3_models) - 1) / 2)
+    ax.set_xticklabels(class_names, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+    ax.set_ylim([0, 1.1])
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIGURES_DIR, 'per_class_comparison.png'),
+               dpi=300, bbox_inches='tight')
+    print(f"✓ Per-class comparison saved")
 
 plt.close('all')
 
@@ -402,6 +529,10 @@ plt.close('all')
 print("\n" + "="*80)
 print("CLASSICAL BASELINE TRAINING COMPLETE!")
 print("="*80)
+print(f"\nConfiguration:")
+print(f"  Classification mode: {config['mode']}")
+print(f"  Number of classes:   {n_classes}")
+print(f"  Classes:             {', '.join(class_names)}")
 print(f"\nBest Model: {best_model_name}")
 print(f"  F1-Score: {best_model_info['F1-Score']:.4f}")
 print(f"  Accuracy: {best_model_info['Accuracy']:.4f}")
