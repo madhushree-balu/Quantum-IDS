@@ -1,8 +1,8 @@
-count
-dst_bytes
-logged_in
-dst_host_count
-diff_srv_rate
-srv_count
-dst_host_srv_diff_host_rate
 src_bytes
+count
+srv_count
+service
+logged_in
+dst_host_srv_count
+dst_host_diff_srv_rate
+dst_bytes

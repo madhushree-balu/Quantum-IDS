@@ -1,5 +1,5 @@
-DoS
+DOS
 Normal
-Probe
+PROBE
 R2L
 U2R

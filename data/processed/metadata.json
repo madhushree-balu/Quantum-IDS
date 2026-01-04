@@ -1,0 +1,29 @@
+{
+  "n_classes": 5,
+  "class_names": [
+    "DOS",
+    "Normal",
+    "PROBE",
+    "R2L",
+    "U2R"
+  ],
+  "n_features": 8,
+  "feature_names": [
+    "src_bytes",
+    "count",
+    "srv_count",
+    "service",
+    "logged_in",
+    "dst_host_srv_count",
+    "dst_host_diff_srv_rate",
+    "dst_bytes"
+  ],
+  "n_train": 2835,
+  "n_val": 406,
+  "n_test": 811,
+  "scaling_methods": [
+    "standard",
+    "minmax"
+  ],
+  "pca_applied": false
+}

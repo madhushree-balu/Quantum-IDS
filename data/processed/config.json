@@ -1,26 +1,18 @@
 {
-    "mode": "category",
-    "n_classes": 5,
-    "class_names": [
-        "DoS",
-        "Normal",
-        "Probe",
-        "R2L",
-        "U2R"
-    ],
-    "n_features": 8,
-    "sample_size": 52,
-    "train_size": 182,
-    "test_size": 78,
-    "feature_names": [
-        "count",
-        "dst_bytes",
-        "logged_in",
-        "dst_host_count",
-        "diff_srv_rate",
-        "srv_count",
-        "dst_host_srv_diff_host_rate",
-        "src_bytes"
-    ],
-    "random_seed": 42
+  "mode": "category",
+  "sample_size": 5000,
+  "n_features": 8,
+  "test_size": 0.2,
+  "val_size": 0.1,
+  "random_state": 42,
+  "balance_classes": true,
+  "scaling_method": "both",
+  "minmax_range": [
+    0,
+    1
+  ],
+  "feature_selection_method": "random_forest",
+  "apply_pca": false,
+  "pca_components": 0.95,
+  "n_cv_folds": 5
 }
