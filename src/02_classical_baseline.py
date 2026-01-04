@@ -538,7 +538,7 @@ ax1.set_xlabel('Accuracy')
 ax1.set_title('Model Accuracy (Train/Val/Test)', fontsize=12, fontweight='bold')
 ax1.legend(loc='lower right', fontsize=8)
 ax1.grid(True, alpha=0.3, axis='x')
-ax1.set_xlim([0, 1.05])
+ax1.set_xlim((0, 1.05))
 
 # 2. F1-Score Comparison
 ax2 = plt.subplot(2, 4, 2)
@@ -549,7 +549,7 @@ ax2.set_yticklabels(results_df['Model'], fontsize=9)
 ax2.set_xlabel('F1-Score')
 ax2.set_title('Model F1-Scores', fontsize=12, fontweight='bold')
 ax2.grid(True, alpha=0.3, axis='x')
-ax2.set_xlim([0, 1.05])
+ax2.set_xlim((0, 1.05))
 
 # Highlight best
 best_idx_plot = results_df.reset_index(drop=True)[results_df['Model'] == best_model_name].index[0]
@@ -597,7 +597,7 @@ ax5.set_xticklabels(class_names, rotation=45, ha='right', fontsize=8)
 ax5.set_ylabel('Accuracy')
 ax5.set_title('Per-Class Accuracy', fontsize=12, fontweight='bold')
 ax5.grid(True, alpha=0.3, axis='y')
-ax5.set_ylim([0, 1.1])
+ax5.set_ylim((0, 1.1))
 ax5.axhline(y=0.95, color='green', linestyle='--', linewidth=2, alpha=0.5, label='95% Target')
 ax5.axhline(y=best_model_info['Test_Acc'], color='red', linestyle='--', 
             linewidth=2, label=f'Overall: {best_model_info["Test_Acc"]:.3f}')
@@ -628,7 +628,7 @@ ax6.set_ylabel('Accuracy')
 ax6.set_title('Generalization Analysis', fontsize=12, fontweight='bold')
 ax6.legend()
 ax6.grid(True, alpha=0.3, axis='y')
-ax6.set_ylim([0, 1.05])
+ax6.set_ylim((0, 1.05))
 
 # 7. Metrics Radar Chart
 ax7 = plt.subplot(2, 4, 7, projection='polar')
