@@ -28,7 +28,7 @@ print("="*80)
 # ========================================
 CONFIG = {
     'mode': 'category',  # 'binary', 'category', or 'multiclass'
-    'sample_size': 5000,
+    'sample_size': 15000,
     'n_features': 8,  # Reduced for quantum kernel efficiency (4, 8, or 15)
     'test_size': 0.2,
     'val_size': 0.1,  # Validation set from training data
