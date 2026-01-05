@@ -1,0 +1,7 @@
+{
+  "Classical Only (Best)": 0.99,
+  "Single Quantum Kernel (Best)": 0.93,
+  "Fixed Weight Ensemble": 0.92875,
+  "AQKF (Proposed)": 0.9275,
+  "Full Hybrid Ensemble": 0.99
+}

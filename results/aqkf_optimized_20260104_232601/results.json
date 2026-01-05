@@ -1,0 +1,71 @@
+{
+  "final_metrics": {
+    "accuracy": 0.99,
+    "precision": 0.9902109529702969,
+    "recall": 0.99,
+    "f1_score": 0.9891198985425875
+  },
+  "training_time_hours": 3.0573806031545003,
+  "quantum_advantage_percent": 0.0,
+  "aqkf_performance": {
+    "accuracy": 0.9275,
+    "f1_score": 0.9207989995777268,
+    "adaptive_weights_mean": [
+      0.49589314930949213,
+      0.5041068506905078
+    ],
+    "adaptive_weights_std": [
+      0.028863364207288047,
+      0.02886336420728803
+    ]
+  },
+  "model_comparison": [
+    {
+      "Model": "XGBoost",
+      "Accuracy": 0.99,
+      "F1-Score": 0.9891136655299267
+    },
+    {
+      "Model": "GB",
+      "Accuracy": 0.98875,
+      "F1-Score": 0.9878757909146025
+    },
+    {
+      "Model": "RF",
+      "Accuracy": 0.98625,
+      "F1-Score": 0.9853793537655019
+    },
+    {
+      "Model": "QK-circular-R1",
+      "Accuracy": 0.93,
+      "F1-Score": 0.9300235010192595
+    },
+    {
+      "Model": "AQKF",
+      "Accuracy": 0.9275,
+      "F1-Score": 0.9207989995777268
+    },
+    {
+      "Model": "QK-linear-R2",
+      "Accuracy": 0.92375,
+      "F1-Score": 0.9237766812680407
+    }
+  ],
+  "top_3_ensemble": [
+    "XGBoost",
+    "GB",
+    "RF"
+  ],
+  "ensemble_weights": [
+    0.33889433885378917,
+    0.3346845257650529,
+    0.32642113538115786
+  ],
+  "novel_contributions": [
+    "Adaptive Quantum Kernel Fusion (AQKF) - Per-sample kernel weighting",
+    "Kernel-Target Alignment based adaptive weights",
+    "Quantum-Classical disagreement bonus mechanism",
+    "Stratified Nystr\u00f6m landmarks with diversity maximization"
+  ],
+  "publication_ready": true
+}

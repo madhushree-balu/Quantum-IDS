@@ -1,0 +1,19 @@
+Confusion Matrix:
+[[197   0   0   0   0]
+ [  0 195   0   3   0]
+ [  0   0 197   0   0]
+ [  0   0   0 197   0]
+ [  0   0   3   2   6]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+         DOS       1.00      1.00      1.00       197
+      Normal       1.00      0.98      0.99       198
+       PROBE       0.98      1.00      0.99       197
+         R2L       0.98      1.00      0.99       197
+         U2R       1.00      0.55      0.71        11
+
+    accuracy                           0.99       800
+   macro avg       0.99      0.91      0.94       800
+weighted avg       0.99      0.99      0.99       800

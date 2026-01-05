@@ -45,6 +45,8 @@ from scipy.stats import ttest_rel
 from tqdm import tqdm
 import json
 import warnings
+import pickle
+
 warnings.filterwarnings('ignore')
 
 print("="*100)
@@ -465,7 +467,8 @@ classical_models['XGBoost'] = {
     'proba': y_proba_xgb,
     'acc': accuracy_score(y_test, y_pred_xgb),
     'f1': f1_score(y_test, y_pred_xgb, average='weighted'),
-    'time': time.time() - start
+    'time': time.time() - start,
+    'model': xgb
 }
 print(f"  ✓ XGBoost - Acc: {classical_models['XGBoost']['acc']:.4f} ({classical_models['XGBoost']['acc']*100:.2f}%)")
 
@@ -492,7 +495,8 @@ classical_models['RF'] = {
     'proba': y_proba_rf,
     'acc': accuracy_score(y_test, y_pred_rf),
     'f1': f1_score(y_test, y_pred_rf, average='weighted'),
-    'time': time.time() - start
+    'time': time.time() - start,
+    'model': rf
 }
 print(f"  ✓ RF - Acc: {classical_models['RF']['acc']:.4f} ({classical_models['RF']['acc']*100:.2f}%)")
 
@@ -517,7 +521,8 @@ classical_models['GB'] = {
     'proba': y_proba_gb,
     'acc': accuracy_score(y_test, y_pred_gb),
     'f1': f1_score(y_test, y_pred_gb, average='weighted'),
-    'time': time.time() - start
+    'time': time.time() - start,
+    'model': gb
 }
 print(f"  ✓ GB - Acc: {classical_models['GB']['acc']:.4f} ({classical_models['GB']['acc']*100:.2f}%)")
 
@@ -830,6 +835,15 @@ print(f"\n🌟 AQKF Contribution: +{aqkf_contribution:.2f}% over fixed weights")
 with open(os.path.join(RESULTS_DIR, 'ablation_study.json'), 'w') as f:
     json.dump(ablation_results, f, indent=2)
 
+print(f"\n✓ Models saved to: {RESULTS_DIR}/quantum_models.pkl and {RESULTS_DIR}/classical_models.pkl")
+# Save models
+with open(f'{RESULTS_DIR}/quantum_models.pkl', 'wb') as f:
+    pickle.dump(quantum_models, f)
+
+with open(f'{RESULTS_DIR}/classical_models.pkl', 'wb') as f:
+    pickle.dump(classical_models, f)
+
+
 # ========================================
 # STATISTICAL VALIDATION (for paper)
 # ========================================
@@ -868,6 +882,28 @@ checklist = {
 
 for item, status in checklist.items():
     print(f"  {status} {item}")
+
+
+model_package = {
+    'quantum_models': quantum_models,
+    'classical_models': classical_models,
+    'scaler': scaler,  # MinMaxScaler for quantum features
+    'selected_features': selected_features,  # Which features to use
+    'landmark_idx': landmark_idx,  # For quantum kernels
+    'X_train_quantum': X_train_quantum,  # Needed for quantum prediction
+    'class_names': class_names,
+    'config': CONFIG,
+    'ensemble_info': {
+        'top_3_names': top_3_names,
+        'weights': weights
+    }
+}
+
+with open(f'{RESULTS_DIR}/full_model_package.pkl', 'wb') as f:
+    pickle.dump(model_package, f)
+    
+print(f"\n✓ Full model package saved to: {RESULTS_DIR}/full_model_package.pkl")
+
 
 print("\n" + "="*80)
 print("✨ READY FOR IEEE CONFERENCE SUBMISSION!")
